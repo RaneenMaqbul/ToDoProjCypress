@@ -5,6 +5,11 @@ pipeline {
     nodejs "NodeJS_18"
   }
 
+  parameters {
+    choice(name: 'TEST_SUITE', choices: ['both', 'register', 'todo'], description: 'Which specs to run?')
+    choice(name: 'BROWSER', choices: ['chrome', 'edge', 'electron'], description: 'Browser for Cypress run')
+  }
+
   stages {
 
     stage('Checkout') {
@@ -28,21 +33,39 @@ pipeline {
       }
     }
 
-    stage('Run Cypress in Parallel') {
-      parallel {
+    stage('Run Cypress') {
+      steps {
+        script {
+          def branches = [:]
 
-        stage('Run Register Tests') {
-          steps {
-            bat 'set "REPORT_DIR=cypress/reports/register" && npx cypress run --spec "cypress/e2e/register.cy.js" --browser chrome'
+          if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'register') {
+            branches['Register Specs'] = {
+              bat """
+                set "REPORT_DIR=cypress/reports/register" &&
+                npx cypress run --spec "cypress/e2e/register.cy.js" --browser ${params.BROWSER}
+              """
+            }
+          }
+
+          if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'todo') {
+            branches['Todo Specs'] = {
+              bat """
+                set "REPORT_DIR=cypress/reports/todo" &&
+                npx cypress run --spec "cypress/e2e/todo.cy.js" --browser ${params.BROWSER}
+              """
+            }
+          }
+
+          // ✅ لو اختارتي suite غلط أو فاضي (احتياط)
+          if (branches.size() == 0) {
+            echo "No specs selected."
+          } else if (branches.size() == 1) {
+            // ✅ لو واحد بس، شغّليه بدون parallel
+            branches.values().toList()[0].call()
+          } else {
+            parallel branches
           }
         }
-
-        stage('Run Todo Tests') {
-          steps {
-            bat 'set "REPORT_DIR=cypress/reports/todo" && npx cypress run --spec "cypress/e2e/todo.cy.js" --browser chrome'
-          }
-        }
-
       }
     }
 
@@ -52,10 +75,20 @@ pipeline {
           if exist cypress\\reports\\merged rmdir /s /q cypress\\reports\\merged
           mkdir cypress\\reports\\merged
 
-          echo ====== DEBUG: JSON FILES FOUND (.jsons) ======
-          dir /s /b cypress\\reports\\.jsons\\*.json
+          echo ====== DEBUG: JSON FILES FOUND (recursive) ======
+          dir /s /b cypress\\reports\\**\\*.json | findstr /i "\\\\.jsons\\\\"
 
+          REM ✅ لو ما في JSONs، ما نفشل البيلد
+          dir /s /b cypress\\reports\\**\\*.json | findstr /i "\\\\.jsons\\\\" >nul
+          if errorlevel 1 (
+            echo No mochawesome json files found - skipping merge step.
+            exit /b 0
+          )
+
+          echo ====== MERGE JSONs ======
           npx mochawesome-merge "cypress/reports/**/.jsons/*.json" > cypress/reports/merged/merged.json
+
+          echo ====== GENERATE HTML ======
           npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
         '''
       }
@@ -73,7 +106,7 @@ pipeline {
           keepAll: true,
           reportDir: 'cypress/reports/merged',
           reportFiles: 'index.html',
-          reportName: 'Cypress Mochawesome Report'
+          reportName: 'Cypress Mochawesome Report (Merged)'
         ])
       }
     }
