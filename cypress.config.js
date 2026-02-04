@@ -4,11 +4,13 @@ module.exports = defineConfig({
   projectId: "kpj6do",
 
   reporter: "cypress-mochawesome-reporter",
-   reporterOptions: {
-    reportDir: process.env.REPORT_DIR || "cypress/reports",
+  reporterOptions: {
+    // ✅ خلي JSONs تنكتب هون مباشرة
+    reportDir: `${process.env.REPORT_DIR || "cypress/reports"}/.jsons`,
     overwrite: false,
-    html: false,   
-    json: true,  
+    html: false,     // ✅ ما بدنا HTML أثناء parallel
+    json: true,
+
     reportPageTitle: "Automation Test Report",
     embeddedScreenshots: true,
     inlineAssets: true,
@@ -28,4 +30,3 @@ module.exports = defineConfig({
     },
   },
 });
-
