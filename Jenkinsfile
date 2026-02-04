@@ -40,7 +40,6 @@ pipeline {
 
                     if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'register') {
                         branches['Register Specs'] = {
-                            // ملاحظة: تم إزالة المسافة قبل الـ && لضمان اسم مجلد صحيح
                             bat "set REPORT_DIR=cypress/reports/register&& npx cypress run --spec cypress/e2e/register.cy.js --browser ${params.BROWSER}"
                         }
                     }
@@ -63,12 +62,23 @@ pipeline {
         stage('Merge Reports') {
             steps {
                 bat '''
+                    echo ====== LIST JSON FILES (DEBUG) ======
+                    if exist cypress\\reports (
+                        dir cypress\\reports /s /b | findstr /i "\\.json"
+                    ) else (
+                        echo "cypress\\reports folder not found!"
+                        exit /b 1
+                    )
+
                     echo ====== MERGE JSONs ======
-                    :: التعديل هنا: نحدد المسار داخل مجلدات الاختبار فقط لنتجنب ملف merged.json نفسه
-                    npx mochawesome-merge "cypress/reports/**/.jsons/*.json" > cypress/reports/merged/merged.json
-                    
+                    :: FIX: match nested .jsons folders too (your case is .jsons\\.jsons)
+                    npx mochawesome-merge "cypress/reports/**/.jsons/**/*.json" > cypress/reports/merged/merged.json
+
                     echo ====== GENERATE HTML ======
                     npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
+
+                    echo ====== MERGED OUTPUT ======
+                    dir cypress\\reports\\merged
                 '''
             }
         }
@@ -77,7 +87,7 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
-            
+
             publishHTML(target: [
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
