@@ -89,12 +89,8 @@ pipeline {
                         exit /b 1
                     )
 
-                    echo ===== MERGE JSONs (ROBUST GLOB) =====
-                    :: This covers:
-                    :: cypress/reports/register/.jsons/*.json
-                    :: cypress/reports/todo/.jsons/*.json
-                    :: and any accidental nesting like .jsons/.jsons/**/*.json
-                    call npx mochawesome-merge "cypress/reports/**/.jsons/**/*.json" > cypress/reports/merged/merged.json
+                    echo ===== MERGE JSONs =====
+                    call npx mochawesome-merge "cypress/reports/**/*.json" > cypress/reports/merged/merged.json
 
                     if not exist cypress\\reports\\merged\\merged.json (
                         echo "merged.json not created!"
