@@ -6,6 +6,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -18,22 +19,32 @@ pipeline {
             }
         }
 
-        stage('Run Cypress & Generate Report') {
-            steps {
-                bat 'npm run test:report'
+        stage('Run Cypress in Parallel') {
+            parallel {
+
+                stage('Run Register Tests') {
+                    steps {
+                        bat 'npx cypress run --spec "cypress/e2e/register.cy.js" --browser chrome'
+                    }
+                }
+
+                stage('Run Todo Tests') {
+                    steps {
+                        bat 'npx cypress run --spec "cypress/e2e/todo.cy.js" --browser chrome'
+                    }
+                }
+
             }
         }
     }
 
     post {
         always {
-            // 1) نخلي ملف التقرير متوفر كـ Artifact (اختياري لكنه مفيد)
             archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
 
-            // 2) نشر HTML Report داخل Jenkins (HTML Publisher)
             script {
                 publishHTML(target: [
-                    allowMissing: false,
+                    allowMissing: true,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
                     reportDir: 'cypress/reports',
