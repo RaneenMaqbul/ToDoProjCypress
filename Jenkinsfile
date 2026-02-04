@@ -6,29 +6,22 @@ pipeline {
   }
 
   stages {
-
-    stage('Checkout Code') {
-      steps {
-        checkout scm
-      }
+    stage('Checkout') {
+      steps { checkout scm }
     }
 
-    stage('Install Dependencies') {
-      steps {
-        bat 'npm install'
-      }
+    stage('Install') {
+      steps { bat 'npm ci' }
     }
 
-    stage('Run Cypress Tests') {
-      steps {
-        bat 'npx cypress run --browser chrome'
-      }
+    stage('Run Cypress') {
+      steps { bat 'npx cypress run --browser chrome' }
     }
   }
 
   post {
     always {
-      archiveArtifacts artifacts: 'cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'cypress/screenshots/**,cypress/videos/**', allowEmptyArchive: true
     }
   }
 }
