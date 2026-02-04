@@ -24,22 +24,46 @@ pipeline {
 
                 stage('Chrome Tests') {
                     steps {
-                        bat 'npx cypress run --browser chrome'
+                        // عزل Cypress/APPDATA لهذا الفرع + فصل فولدر التقرير
+                        bat """
+                        set "APPDATA=%WORKSPACE%\\_appdata_chrome"
+                        set "LOCALAPPDATA=%WORKSPACE%\\_localappdata_chrome"
+                        if not exist "%APPDATA%" mkdir "%APPDATA%"
+                        if not exist "%LOCALAPPDATA%" mkdir "%LOCALAPPDATA%"
+
+                        set "MOCHAWESOME_REPORTDIR=cypress\\reports\\chrome"
+                        set "MOCHAWESOME_REPORTFILENAME=index"
+
+                        npm run test:report -- --browser chrome
+                        """
                     }
                 }
 
                 stage('Edge Tests') {
                     steps {
-                        bat 'npx cypress run --browser edge'
+                        // عزل Cypress/APPDATA لهذا الفرع + فصل فولدر التقرير
+                        bat """
+                        set "APPDATA=%WORKSPACE%\\_appdata_edge"
+                        set "LOCALAPPDATA=%WORKSPACE%\\_localappdata_edge"
+                        if not exist "%APPDATA%" mkdir "%APPDATA%"
+                        if not exist "%LOCALAPPDATA%" mkdir "%LOCALAPPDATA%"
+
+                        set "MOCHAWESOME_REPORTDIR=cypress\\reports\\edge"
+                        set "MOCHAWESOME_REPORTFILENAME=index"
+
+                        npm run test:report -- --browser edge
+                        """
                     }
                 }
+            }
+        }
 
-                // تقدري تضيفي كمان
-                // stage('Electron Tests') {
-                //     steps {
-                //         bat 'npx cypress run --browser electron'
-                //     }
-                // }
+        // (اختياري لكنه ممتاز) Stage لدمج التقارير إذا بدك تقرير واحد
+        stage('Merge Report') {
+            steps {
+                // إذا سكربت test:report عندك أصلاً بعمل merge عام،
+                // ممكن تحذفي هالستيج. إذا بدك merge هنا، احكيلي شو مستخدمة بالضبط (marge/mochawesome-merge).
+                echo 'Report folders: cypress/reports/chrome and cypress/reports/edge'
             }
         }
     }
@@ -47,18 +71,19 @@ pipeline {
     post {
         always {
 
-            // 📦 Archive artifacts
             archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
 
-            // 📊 Publish HTML Report
+            // إذا بدك تعرض تقرير واحد ثابت:
+            // - خلي reportDir على المسار اللي فيه index.html النهائي
+            // حالياً إذا كل فرع بطلع index.html داخل chrome/edge لازم تختاري واحد
             script {
                 publishHTML(target: [
-                    allowMissing: false,
+                    allowMissing: true,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
-                    reportDir: 'cypress/reports',
+                    reportDir: 'cypress/reports/chrome',
                     reportFiles: 'index.html',
-                    reportName: 'Cypress Mochawesome Report'
+                    reportName: 'Cypress Mochawesome Report (Chrome)'
                 ])
             }
         }
