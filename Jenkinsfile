@@ -23,6 +23,7 @@ pipeline {
         bat '''
           if exist cypress\\reports rmdir /s /q cypress\\reports
           mkdir cypress\\reports
+          mkdir cypress\\reports\\merged
         '''
       }
     }
@@ -40,27 +41,19 @@ pipeline {
 
           if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'register') {
             branches['Register Specs'] = {
-              bat """
-                set "REPORT_DIR=cypress/reports/register" &&
-                npx cypress run --spec "cypress/e2e/register.cy.js" --browser ${params.BROWSER}
-              """
+              bat """cmd /c "set REPORT_DIR=cypress\\reports\\register&& npx cypress run --spec \\"cypress/e2e/register.cy.js\\" --browser ${params.BROWSER}"""
             }
           }
 
           if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'todo') {
             branches['Todo Specs'] = {
-              bat """
-                set "REPORT_DIR=cypress/reports/todo" &&
-                npx cypress run --spec "cypress/e2e/todo.cy.js" --browser ${params.BROWSER}
-              """
+              bat """cmd /c "set REPORT_DIR=cypress\\reports\\todo&& npx cypress run --spec \\"cypress/e2e/todo.cy.js\\" --browser ${params.BROWSER}"""
             }
           }
 
-          // ✅ لو اختارتي suite غلط أو فاضي (احتياط)
           if (branches.size() == 0) {
             echo "No specs selected."
           } else if (branches.size() == 1) {
-            // ✅ لو واحد بس، شغّليه بدون parallel
             branches.values().toList()[0].call()
           } else {
             parallel branches
@@ -72,18 +65,17 @@ pipeline {
     stage('Merge Mochawesome Reports') {
       steps {
         bat '''
-          if exist cypress\\reports\\merged rmdir /s /q cypress\\reports\\merged
-          mkdir cypress\\reports\\merged
+          echo ====== DEBUG: JSON FILES FOUND (.jsons) ======
+          dir /s /b cypress\\reports\\*.json | findstr /i "\\\\.jsons\\\\"
 
-          echo ====== DEBUG: JSON FILES FOUND (recursive) ======
-          dir /s /b cypress\\reports\\**\\*.json | findstr /i "\\\\.jsons\\\\"
-
-          REM ✅ لو ما في JSONs، ما نفشل البيلد
-          dir /s /b cypress\\reports\\**\\*.json | findstr /i "\\\\.jsons\\\\" >nul
+          dir /s /b cypress\\reports\\*.json | findstr /i "\\\\.jsons\\\\" >nul
           if errorlevel 1 (
             echo No mochawesome json files found - skipping merge step.
             exit /b 0
           )
+
+          if exist cypress\\reports\\merged rmdir /s /q cypress\\reports\\merged
+          mkdir cypress\\reports\\merged
 
           echo ====== MERGE JSONs ======
           npx mochawesome-merge "cypress/reports/**/.jsons/*.json" > cypress/reports/merged/merged.json
