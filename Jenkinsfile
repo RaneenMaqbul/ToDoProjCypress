@@ -13,6 +13,15 @@ pipeline {
       }
     }
 
+    stage('Clean Reports') {
+      steps {
+        bat '''
+          if exist cypress\\reports rmdir /s /q cypress\\reports
+          mkdir cypress\\reports
+        '''
+      }
+    }
+
     stage('Install') {
       steps {
         bat 'npm ci'
@@ -24,14 +33,12 @@ pipeline {
 
         stage('Run Register Tests') {
           steps {
-            // FIX: prevent trailing spaces in REPORT_DIR
             bat 'set "REPORT_DIR=cypress/reports/register" && npx cypress run --spec "cypress/e2e/register.cy.js" --browser chrome'
           }
         }
 
         stage('Run Todo Tests') {
           steps {
-            // FIX: prevent trailing spaces in REPORT_DIR
             bat 'set "REPORT_DIR=cypress/reports/todo" && npx cypress run --spec "cypress/e2e/todo.cy.js" --browser chrome'
           }
         }
@@ -45,8 +52,8 @@ pipeline {
           if exist cypress\\reports\\merged rmdir /s /q cypress\\reports\\merged
           mkdir cypress\\reports\\merged
 
-          echo ====== DEBUG: JSON FILES FOUND ======
-          dir /s /b cypress\\reports\\*.json
+          echo ====== DEBUG: JSON FILES FOUND (.jsons) ======
+          dir /s /b cypress\\reports\\.jsons\\*.json
 
           npx mochawesome-merge "cypress/reports/**/.jsons/*.json" > cypress/reports/merged/merged.json
           npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
