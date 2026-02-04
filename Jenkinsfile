@@ -1,152 +1,48 @@
 pipeline {
-  agent any
+    agent any
 
-  tools {
-    nodejs "NodeJS_18"
-  }
-
-  parameters {
-    choice(name: 'TEST_SUITE', choices: ['both', 'register', 'todo'], description: 'Which specs to run?')
-    choice(name: 'BROWSER', choices: ['chrome', 'edge', 'electron'], description: 'Browser for Cypress run')
-  }
-
-  stages {
-    stage('Checkout') {
-      steps { checkout scm }
+    tools {
+        nodejs "NodeJS_18"
     }
 
-    stage('Install') {
-      steps {
-        script {
-          if (isUnix()) {
-            sh 'npm ci'
-          } else {
-            bat 'call npm ci'
-          }
-        }
-      }
-    }
+    stages {
 
-    stage('Clean Reports') {
-      steps {
-        script {
-          if (isUnix()) {
-            sh '''
-              rm -rf cypress/reports || true
-              mkdir -p cypress/reports/register cypress/reports/todo cypress/reports/merged
-            '''
-          } else {
-            bat '''
-              if exist cypress\\reports rmdir /s /q cypress\\reports
-              mkdir cypress\\reports
-              mkdir cypress\\reports\\register
-              mkdir cypress\\reports\\todo
-              mkdir cypress\\reports\\merged
-            '''
-          }
-        }
-      }
-    }
-
-    stage('Run Cypress (Parallel)') {
-      steps {
-        script {
-          def branches = [:]
-
-          if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'register') {
-            branches['Register Specs'] = {
-              script {
-                if (isUnix()) {
-                  sh """
-                    export REPORT_DIR=cypress/reports/register
-                    npx cypress run --spec "cypress/e2e/register.cy.js" --browser "${params.BROWSER}"
-                  """
-                } else {
-                  bat """
-                    set "REPORT_DIR=cypress/reports/register"
-                    call npx cypress run --spec "cypress/e2e/register.cy.js" --browser "${params.BROWSER}"
-                  """
-                }
-              }
+        stage('Checkout') {
+            steps {
+                checkout scm
             }
-          }
+        }
 
-          if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'todo') {
-            branches['Todo Specs'] = {
-              script {
-                if (isUnix()) {
-                  sh """
-                    export REPORT_DIR=cypress/reports/todo
-                    npx cypress run --spec "cypress/e2e/todo.cy.js" --browser "${params.BROWSER}"
-                  """
-                } else {
-                  bat """
-                    set "REPORT_DIR=cypress/reports/todo"
-                    call npx cypress run --spec "cypress/e2e/todo.cy.js" --browser "${params.BROWSER}"
-                  """
-                }
-              }
+        stage('Install') {
+            steps {
+                bat 'npm ci'
             }
-          }
-
-          parallel branches
         }
-      }
-    }
 
-    stage('Merge Reports') {
-      steps {
-        script {
-          if (isUnix()) {
-            sh '''
-              ls -R cypress/reports || true
-              test -n "$(find cypress/reports -name '*.json' -print -quit)" || (echo "No mochawesome JSON found" && exit 1)
-
-              npx mochawesome-merge "cypress/reports/**/*.json" > cypress/reports/merged/merged.json
-              npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
-
-              test -f cypress/reports/merged/index.html
-            '''
-          } else {
-            bat '''
-              REM Debug: show files
-              dir cypress\\reports /s /b
-
-              REM Ensure at least one JSON exists (otherwise fail with clear message)
-              dir /s /b cypress\\reports\\*.json > cypress\\reports\\merged\\_json_list.txt 2>nul
-              for /f %%A in ('type cypress\\reports\\merged\\_json_list.txt ^| find /c /v ""') do set COUNT=%%A
-              if "%COUNT%"=="0" (
-                echo No mochawesome JSON found under cypress\\reports. Make sure reporterOptions has json:true and html:false
-                exit /b 1
-              )
-
-              REM Merge all JSON reports
-              call npx mochawesome-merge "cypress/reports/**/*.json" > cypress\\reports\\merged\\merged.json
-
-              REM Generate merged HTML
-              call npx marge cypress\\reports\\merged\\merged.json -f index -o cypress\\reports\\merged
-
-              REM Fail if report not created
-              if not exist cypress\\reports\\merged\\index.html exit /b 1
-            '''
-          }
+        stage('Run Cypress & Generate Report') {
+            steps {
+                bat 'npm run test:report'
+            }
         }
-      }
     }
-  }
 
-  post {
-    always {
-      archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+    post {
+        always {
 
-      publishHTML(target: [
-        allowMissing: true,
-        alwaysLinkToLastBuild: true,
-        keepAll: true,
-        reportDir: 'cypress/reports/merged',
-        reportFiles: 'index.html',
-        reportName: 'Cypress Mochawesome Report'
-      ])
+            // 📦 Archive artifacts (reports, screenshots, videos)
+            archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+
+            // 📊 Publish HTML Report inside Jenkins
+            script {
+                publishHTML(target: [
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'cypress/reports',
+                    reportFiles: 'index.html',
+                    reportName: 'Cypress Mochawesome Report'
+                ])
+            }
+        }
     }
-  }
 }
