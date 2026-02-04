@@ -3,7 +3,7 @@ const { defineConfig } = require("cypress");
 module.exports = defineConfig({
   projectId: "kpj6do",
 
- reporter: 'mochawesome',
+reporter: 'cypress-mochawesome-reporter',
 reporterOptions: {
   reportDir: process.env.REPORT_DIR || 'cypress/reports',  // ← بدون .jsons
   overwrite: false,
