@@ -10,8 +10,8 @@
   "pretest:report": "npm run clean:reports",
 
   "test:report": "cypress run --browser chrome",
-"merge-reports": "mochawesome-merge \"cypress/reports/.jsons/*.json\" -o cypress/reports/output.json",
-"generate-report": "marge cypress/reports/output.json -f index -o cypress/reports"
+  "merge-reports": "mochawesome-merge \"cypress/reports/**/.jsons/*.json\" -o cypress/reports/output.json",
+  "generate-report": "marge cypress/reports/output.json -f index -o cypress/reports"
 },
   "keywords": [],
   "author": "",
