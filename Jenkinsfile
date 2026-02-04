@@ -24,15 +24,15 @@ pipeline {
 
         stage('Run Register Tests') {
           steps {
-            // unique report folder to avoid parallel conflict
-            bat 'set REPORT_DIR=cypress/reports/register && npx cypress run --spec "cypress/e2e/register.cy.js" --browser chrome'
+            // FIX: prevent trailing spaces in REPORT_DIR
+            bat 'set "REPORT_DIR=cypress/reports/register" && npx cypress run --spec "cypress/e2e/register.cy.js" --browser chrome'
           }
         }
 
         stage('Run Todo Tests') {
           steps {
-            // unique report folder to avoid parallel conflict
-            bat 'set REPORT_DIR=cypress/reports/todo && npx cypress run --spec "cypress/e2e/todo.cy.js" --browser chrome'
+            // FIX: prevent trailing spaces in REPORT_DIR
+            bat 'set "REPORT_DIR=cypress/reports/todo" && npx cypress run --spec "cypress/e2e/todo.cy.js" --browser chrome'
           }
         }
 
@@ -41,10 +41,12 @@ pipeline {
 
     stage('Merge Mochawesome Reports') {
       steps {
-        // Merge all JSON reports from both branches into one HTML report
         bat '''
           if exist cypress\\reports\\merged rmdir /s /q cypress\\reports\\merged
           mkdir cypress\\reports\\merged
+
+          echo ====== DEBUG: JSON FILES FOUND ======
+          dir /s /b cypress\\reports\\*.json
 
           npx mochawesome-merge "cypress/reports/**/.jsons/*.json" > cypress/reports/merged/merged.json
           npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
@@ -55,7 +57,6 @@ pipeline {
 
   post {
     always {
-      // archive everything (including per-branch reports + merged report)
       archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
 
       script {
