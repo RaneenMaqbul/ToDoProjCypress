@@ -69,23 +69,23 @@ pipeline {
         }
     }
 
-    post {
-        always {
+post {
+    always {
 
-            // Archive artifacts (reports, screenshots, videos)
-            archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+        // 📄 Archive ONLY the main HTML report
+        archiveArtifacts artifacts: 'cypress/reports/index.html', allowEmptyArchive: true
 
-            // Publish HTML Report inside Jenkins
-            script {
-                publishHTML(target: [
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'cypress/reports',
-                    reportFiles: 'index.html',
-                    reportName: 'Cypress Mochawesome Report'
-                ])
-            }
+        // 📊 Publish ONLY index.html
+        script {
+            publishHTML(target: [
+                allowMissing: false,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'cypress/reports',
+                reportFiles: 'index.html',
+                reportName: 'Cypress Mochawesome Report'
+            ])
         }
     }
+}
 }
