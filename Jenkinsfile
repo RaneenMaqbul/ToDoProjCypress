@@ -112,10 +112,18 @@ pipeline {
               REM Debug: show files
               dir cypress\\reports /s /b
 
-              REM Merge ONLY where mochawesome writes jsons in your project (.jsons folder)
-              call npx mochawesome-merge "cypress/reports/**/.jsons/*.json" > cypress\\reports\\merged\\merged.json
+              REM Ensure at least one JSON exists (otherwise fail with clear message)
+              dir /s /b cypress\\reports\\*.json > cypress\\reports\\merged\\_json_list.txt 2>nul
+              for /f %%A in ('type cypress\\reports\\merged\\_json_list.txt ^| find /c /v ""') do set COUNT=%%A
+              if "%COUNT%"=="0" (
+                echo No mochawesome JSON found under cypress\\reports. Make sure reporterOptions has json:true and html:false
+                exit /b 1
+              )
 
-              REM Generate HTML
+              REM Merge all JSON reports
+              call npx mochawesome-merge "cypress/reports/**/*.json" > cypress\\reports\\merged\\merged.json
+
+              REM Generate merged HTML
               call npx marge cypress\\reports\\merged\\merged.json -f index -o cypress\\reports\\merged
 
               REM Fail if report not created
