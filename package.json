@@ -2,18 +2,19 @@
   "name": "cypressdemo",
   "version": "1.0.0",
   "main": "index.js",
-"scripts": {
-  "cy:open": "cypress open",
-  "cy:run": "cypress run",
+  "scripts": {
+    "cy:open": "cypress open",
+    "cy:run": "cypress run",
 
-  "clean:reports": "if exist cypress\\reports rmdir /s /q cypress\\reports",
+    "clean:reports": "if exist cypress\\reports rmdir /s /q cypress\\reports",
 
-  "test:report": "npm run clean:reports && cypress run --browser chrome",
-"merge-reports": "mochawesome-merge \"cypress/reports/**/.jsons/*.json\" > cypress/reports/merged/merged.json",
-  "generate-report": "marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged",
+    "test:report": "npm run clean:reports && cypress run --browser chrome",
 
-  "report:merged": "npm run merge-reports && npm run generate-report"
-},
+    "merge-reports": "mochawesome-merge \"cypress/reports/**/.jsons/**/*.json\" > cypress/reports/merged/merged.json",
+    "generate-report": "marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged",
+
+    "report:merged": "npm run merge-reports && npm run generate-report"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -32,4 +33,3 @@
     "mochawesome-report-generator": "^6.3.2"
   }
 }
-
