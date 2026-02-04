@@ -20,7 +20,6 @@ pipeline {
 
         stage('Run Cypress & Generate Report') {
             steps {
-                // التشغيل وإصدار التقرير
                 bat 'npm run test:report'
             }
         }
@@ -28,9 +27,20 @@ pipeline {
 
     post {
         always {
-            // أرشفة التقرير النهائي والصور والفيديوهات
-            // رح تلاقي الملفات في قسم الـ Last Successful Artifacts على يمين الصفحة في جينكنز
-            archiveArtifacts artifacts: 'cypress/reports/index.html, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+            // 1) نخلي ملف التقرير متوفر كـ Artifact (اختياري لكنه مفيد)
+            archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+
+            // 2) نشر HTML Report داخل Jenkins (HTML Publisher)
+            script {
+                publishHTML(target: [
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'cypress/reports',
+                    reportFiles: 'index.html',
+                    reportName: 'Cypress Mochawesome Report'
+                ])
+            }
         }
     }
 }
