@@ -20,8 +20,11 @@ pipeline {
         stage('Clean Reports') {
             steps {
                 bat '''
+                    echo ===== CLEAN REPORTS =====
                     if exist cypress\\reports rmdir /s /q cypress\\reports
                     mkdir cypress\\reports
+                    mkdir cypress\\reports\\register
+                    mkdir cypress\\reports\\todo
                     mkdir cypress\\reports\\merged
                 '''
             }
@@ -29,24 +32,32 @@ pipeline {
 
         stage('Install') {
             steps {
-                bat 'npm ci'
+                bat 'call npm ci'
             }
         }
 
-        stage('Run Cypress') {
+        stage('Run Cypress (Parallel)') {
             steps {
                 script {
                     def branches = [:]
 
                     if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'register') {
                         branches['Register Specs'] = {
-                            bat "set REPORT_DIR=cypress/reports/register&& npx cypress run --spec cypress/e2e/register.cy.js --browser ${params.BROWSER}"
+                            bat """
+                                echo ===== RUN REGISTER =====
+                                set "REPORT_DIR=cypress/reports/register"
+                                call npx cypress run --spec "cypress/e2e/register.cy.js" --browser "${params.BROWSER}"
+                            """
                         }
                     }
 
                     if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'todo') {
                         branches['Todo Specs'] = {
-                            bat "set REPORT_DIR=cypress/reports/todo&& npx cypress run --spec cypress/e2e/todo.cy.js --browser ${params.BROWSER}"
+                            bat """
+                                echo ===== RUN TODO =====
+                                set "REPORT_DIR=cypress/reports/todo"
+                                call npx cypress run --spec "cypress/e2e/todo.cy.js" --browser "${params.BROWSER}"
+                            """
                         }
                     }
 
@@ -62,22 +73,43 @@ pipeline {
         stage('Merge Reports') {
             steps {
                 bat '''
-                    echo ====== LIST JSON FILES (DEBUG) ======
-                    if exist cypress\\reports (
-                        dir cypress\\reports /s /b | findstr /i "\\.json"
-                    ) else (
-                        echo "cypress\\reports folder not found!"
+                    echo ===== FIND JSON FILES =====
+                    if not exist cypress\\reports (
+                        echo "cypress\\reports not found!"
                         exit /b 1
                     )
 
-                    echo ====== MERGE JSONs ======
-                    :: FIX: match nested .jsons folders too (your case is .jsons\\.jsons)
-                    npx mochawesome-merge "cypress/reports/**/.jsons/**/*.json" > cypress/reports/merged/merged.json
+                    dir cypress\\reports /s /b | findstr /i "\\.json$" > cypress\\reports\\merged\\_json_list.txt
 
-                    echo ====== GENERATE HTML ======
-                    npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
+                    for /f %%A in ('type cypress\\reports\\merged\\_json_list.txt ^| find /c /v ""') do set COUNT=%%A
+                    echo Found JSON count: %COUNT%
 
-                    echo ====== MERGED OUTPUT ======
+                    if "%COUNT%"=="0" (
+                        echo "No mochawesome JSON files found. Fail build to avoid broken merge."
+                        exit /b 1
+                    )
+
+                    echo ===== MERGE JSONs (ROBUST GLOB) =====
+                    :: This covers:
+                    :: cypress/reports/register/.jsons/*.json
+                    :: cypress/reports/todo/.jsons/*.json
+                    :: and any accidental nesting like .jsons/.jsons/**/*.json
+                    call npx mochawesome-merge "cypress/reports/**/.jsons/**/*.json" > cypress/reports/merged/merged.json
+
+                    if not exist cypress\\reports\\merged\\merged.json (
+                        echo "merged.json not created!"
+                        exit /b 1
+                    )
+
+                    echo ===== GENERATE HTML =====
+                    call npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
+
+                    if not exist cypress\\reports\\merged\\index.html (
+                        echo "index.html not created!"
+                        exit /b 1
+                    )
+
+                    echo ===== DONE =====
                     dir cypress\\reports\\merged
                 '''
             }
