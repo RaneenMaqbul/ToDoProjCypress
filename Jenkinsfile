@@ -19,9 +19,27 @@ pipeline {
             }
         }
 
-        stage('Run Cypress & Generate Report') {
-            steps {
-                bat 'npm run test:report'
+        stage('Run Cypress in Parallel') {
+            parallel {
+
+                stage('Chrome Tests') {
+                    steps {
+                        bat 'npx cypress run --browser chrome'
+                    }
+                }
+
+                stage('Edge Tests') {
+                    steps {
+                        bat 'npx cypress run --browser edge'
+                    }
+                }
+
+                // تقدري تضيفي كمان
+                // stage('Electron Tests') {
+                //     steps {
+                //         bat 'npx cypress run --browser electron'
+                //     }
+                // }
             }
         }
     }
@@ -29,10 +47,10 @@ pipeline {
     post {
         always {
 
-            // 📦 Archive artifacts (reports, screenshots, videos)
+            // 📦 Archive artifacts
             archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
 
-            // 📊 Publish HTML Report inside Jenkins
+            // 📊 Publish HTML Report
             script {
                 publishHTML(target: [
                     allowMissing: false,
