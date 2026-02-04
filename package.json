@@ -8,6 +8,8 @@
   "clean:reports": "if exist cypress\\reports rmdir /s /q cypress\\reports",
   "pretest:report": "npm run clean:reports",
   "test:report": "cypress run"
+    "merge-reports": "mochawesome-merge cypress/reports/.jsons/*.json > cypress/reports/output.json",
+"generate-report": "marge cypress/reports/output.json -f report -o cypress/reports"
   },
   "keywords": [],
   "author": "",
