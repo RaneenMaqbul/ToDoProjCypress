@@ -1,57 +1,46 @@
 pipeline {
-  agent any
+    agent any
 
-  tools {
-    nodejs "NodeJS_18"
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+    tools {
+        nodejs "NodeJS_18"
     }
 
-    stage('Install') {
-      steps {
-        bat 'npm ci'
-      }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install') {
+            steps {
+                bat 'npm ci'
+            }
+        }
+
+        stage('Run Cypress & Generate Report') {
+            steps {
+                // هذا الأمر يقوم بكل شيء (التشغيل + دمج التقارير + إنشاء HTML)
+                // بناءً على الـ Logs الخاصة بك، هذا السكريبت كافٍ جداً
+                bat 'npm run test:report'
+            }
+        }
     }
 
-    stage('Run Cypress (with reporter)') {
-      steps {
-        // مهم: شغّلي سكربت package.json عشان يتفعّل mochawesome reporter
-        bat 'npm run test:report'
-      }
+    post {
+        always {
+            // أرشفة التقرير النهائي بصيغة HTML والصور والفيديوهات إن وجدت
+            archiveArtifacts artifacts: 'cypress/reports/index.html, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
+            
+            // إضافة رابط التقرير مباشرة في Jenkins (اختياري لكن مفيد جداً)
+            publishHTML([
+                allowMissing: false,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'cypress/reports',
+                reportFiles: 'index.html',
+                reportName: 'Cypress Test Report'
+            ])
+        }
     }
-
-    stage('Debug Reports Folder') {
-      steps {
-        // حتى نشوف فعلياً شو انولد داخل reports
-        bat 'if exist cypress\\reports (dir /s cypress\\reports) else (echo "No cypress\\reports folder found")'
-      }
-    }
-
-    stage('Merge Reports') {
-      steps {
-        // ما نكسر البيلد لو ما في jsons لأي سبب
-        bat 'npm run merge-reports || echo "Merge skipped: no JSON report files found"'
-      }
-    }
-
-    stage('Generate HTML Report') {
-      steps {
-        // ما نكسر البيلد لو merge ما عمل output.json
-        bat 'npm run generate-report || echo "HTML report skipped: output.json not found"'
-      }
-    }
-  }
-
-  post {
-    always {
-      // أرشفة كل شيء متعلق بالتقرير + screenshots/videos
-      archiveArtifacts artifacts: 'cypress/reports/**,cypress/screenshots/**,cypress/videos/**', allowEmptyArchive: true
-    }
-  }
 }
-
