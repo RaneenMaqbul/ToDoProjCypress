@@ -109,12 +109,17 @@ pipeline {
             '''
           } else {
             bat '''
-              dir cypress\\reports /s /b | findstr /i "\\.json$" > cypress\\reports\\merged\\_json_list.txt
-              for /f %%A in ('type cypress\\reports\\merged\\_json_list.txt ^| find /c /v ""') do set COUNT=%%A
-              if "%COUNT%"=="0" exit /b 1
+              REM Debug: show files
+              dir cypress\\reports /s /b
 
-              call npx mochawesome-merge "cypress/reports/**/*.json" > cypress/reports/merged/merged.json
-              call npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
+              REM Merge ONLY where mochawesome writes jsons in your project (.jsons folder)
+              call npx mochawesome-merge "cypress/reports/**/.jsons/*.json" > cypress\\reports\\merged\\merged.json
+
+              REM Generate HTML
+              call npx marge cypress\\reports\\merged\\merged.json -f index -o cypress\\reports\\merged
+
+              REM Fail if report not created
+              if not exist cypress\\reports\\merged\\index.html exit /b 1
             '''
           }
         }
