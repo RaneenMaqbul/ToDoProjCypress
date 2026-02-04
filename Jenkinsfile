@@ -5,6 +5,32 @@ pipeline {
         nodejs "NodeJS_18"
     }
 
+    parameters {
+        choice(
+            name: 'BROWSER',
+            choices: ['chrome', 'edge', 'electron'],
+            description: 'Choose which browser Cypress will run on'
+        )
+
+        string(
+            name: 'SPEC',
+            defaultValue: '',
+            description: 'Optional: run specific spec(s). Example: cypress/e2e/todo.cy.js OR cypress/e2e/**/*.cy.js (leave empty to run all)'
+        )
+
+        choice(
+            name: 'HEADLESS',
+            choices: ['true', 'false'],
+            description: 'Run headless or not (Cypress run is headless by default)'
+        )
+
+        string(
+            name: 'CYPRESS_ENV',
+            defaultValue: '',
+            description: 'Optional: Cypress env variables. Example: baseUrl=https://qacart.com,token=123 (leave empty if not needed)'
+        )
+    }
+
     stages {
 
         stage('Checkout') {
@@ -19,51 +45,26 @@ pipeline {
             }
         }
 
-        stage('Run Cypress in Parallel') {
-            parallel {
-
-                stage('Chrome Tests') {
-                    steps {
-                        // عزل Cypress/APPDATA لهذا الفرع + فصل فولدر التقرير
-                        bat """
-                        set "APPDATA=%WORKSPACE%\\_appdata_chrome"
-                        set "LOCALAPPDATA=%WORKSPACE%\\_localappdata_chrome"
-                        if not exist "%APPDATA%" mkdir "%APPDATA%"
-                        if not exist "%LOCALAPPDATA%" mkdir "%LOCALAPPDATA%"
-
-                        set "MOCHAWESOME_REPORTDIR=cypress\\reports\\chrome"
-                        set "MOCHAWESOME_REPORTFILENAME=index"
-
-                        npm run test:report -- --browser chrome
-                        """
-                    }
-                }
-
-                stage('Edge Tests') {
-                    steps {
-                        // عزل Cypress/APPDATA لهذا الفرع + فصل فولدر التقرير
-                        bat """
-                        set "APPDATA=%WORKSPACE%\\_appdata_edge"
-                        set "LOCALAPPDATA=%WORKSPACE%\\_localappdata_edge"
-                        if not exist "%APPDATA%" mkdir "%APPDATA%"
-                        if not exist "%LOCALAPPDATA%" mkdir "%LOCALAPPDATA%"
-
-                        set "MOCHAWESOME_REPORTDIR=cypress\\reports\\edge"
-                        set "MOCHAWESOME_REPORTFILENAME=index"
-
-                        npm run test:report -- --browser edge
-                        """
-                    }
-                }
-            }
-        }
-
-        // (اختياري لكنه ممتاز) Stage لدمج التقارير إذا بدك تقرير واحد
-        stage('Merge Report') {
+        stage('Run Cypress & Generate Report') {
             steps {
-                // إذا سكربت test:report عندك أصلاً بعمل merge عام،
-                // ممكن تحذفي هالستيج. إذا بدك merge هنا، احكيلي شو مستخدمة بالضبط (marge/mochawesome-merge).
-                echo 'Report folders: cypress/reports/chrome and cypress/reports/edge'
+                script {
+                    def cmd = "npm run test:report -- --browser ${params.BROWSER}"
+
+                    if (params.SPEC?.trim()) {
+                        cmd += " --spec \"${params.SPEC}\""
+                    }
+
+                    if (params.CYPRESS_ENV?.trim()) {
+                        cmd += " --env \"${params.CYPRESS_ENV}\""
+                    }
+
+                    // لو بدك non-headless لازم تستخدم --headed (بس بشرط الجهاز/agent يدعم UI)
+                    if (params.HEADLESS == 'false') {
+                        cmd += " --headed"
+                    }
+
+                    bat cmd
+                }
             }
         }
     }
@@ -71,19 +72,18 @@ pipeline {
     post {
         always {
 
+            // Archive artifacts (reports, screenshots, videos)
             archiveArtifacts artifacts: 'cypress/reports/**, cypress/screenshots/**, cypress/videos/**', allowEmptyArchive: true
 
-            // إذا بدك تعرض تقرير واحد ثابت:
-            // - خلي reportDir على المسار اللي فيه index.html النهائي
-            // حالياً إذا كل فرع بطلع index.html داخل chrome/edge لازم تختاري واحد
+            // Publish HTML Report inside Jenkins
             script {
                 publishHTML(target: [
-                    allowMissing: true,
+                    allowMissing: false,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
-                    reportDir: 'cypress/reports/chrome',
+                    reportDir: 'cypress/reports',
                     reportFiles: 'index.html',
-                    reportName: 'Cypress Mochawesome Report (Chrome)'
+                    reportName: 'Cypress Mochawesome Report'
                 ])
             }
         }
