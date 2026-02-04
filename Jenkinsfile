@@ -40,21 +40,20 @@ pipeline {
 
                     if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'register') {
                         branches['Register Specs'] = {
-                            // تم تبسيط الأمر وإزالة cmd /c والهروب المعقد
-                            bat "set REPORT_DIR=cypress/reports/register && npx cypress run --spec cypress/e2e/register.cy.js --browser ${params.BROWSER}"
+                            // ملاحظة: تم إزالة المسافة قبل الـ && لضمان اسم مجلد صحيح
+                            bat "set REPORT_DIR=cypress/reports/register&& npx cypress run --spec cypress/e2e/register.cy.js --browser ${params.BROWSER}"
                         }
                     }
 
                     if (params.TEST_SUITE == 'both' || params.TEST_SUITE == 'todo') {
                         branches['Todo Specs'] = {
-                            bat "set REPORT_DIR=cypress/reports/todo && npx cypress run --spec cypress/e2e/todo.cy.js --browser ${params.BROWSER}"
+                            bat "set REPORT_DIR=cypress/reports/todo&& npx cypress run --spec cypress/e2e/todo.cy.js --browser ${params.BROWSER}"
                         }
                     }
 
                     if (branches.size() == 0) {
                         echo "No specs selected."
                     } else {
-                        // تشغيل متوازي إذا كان الخيار both، أو تشغيل فردي إذا كان واحداً فقط
                         parallel branches
                     }
                 }
@@ -65,7 +64,8 @@ pipeline {
             steps {
                 bat '''
                     echo ====== MERGE JSONs ======
-                    npx mochawesome-merge "cypress/reports/**/*.json" > cypress/reports/merged/merged.json
+                    :: التعديل هنا: نحدد المسار داخل مجلدات الاختبار فقط لنتجنب ملف merged.json نفسه
+                    npx mochawesome-merge "cypress/reports/**/.jsons/*.json" > cypress/reports/merged/merged.json
                     
                     echo ====== GENERATE HTML ======
                     npx marge cypress/reports/merged/merged.json -f index -o cypress/reports/merged
