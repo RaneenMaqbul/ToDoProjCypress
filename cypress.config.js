@@ -5,10 +5,12 @@ module.exports = defineConfig({
 
   reporter: "cypress-mochawesome-reporter",
   reporterOptions: {
-    // ✅ خلي JSONs تنكتب هون مباشرة
+    // يكتب JSONs داخل:
+    // cypress/reports/register/.jsons
+    // cypress/reports/todo/.jsons
     reportDir: `${process.env.REPORT_DIR || "cypress/reports"}/.jsons`,
     overwrite: false,
-    html: false,     // ✅ ما بدنا HTML أثناء parallel
+    html: false,   // مهم للـ parallel
     json: true,
 
     reportPageTitle: "Automation Test Report",
