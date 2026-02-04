@@ -1,91 +1,78 @@
 pipeline {
-    agent any
+  agent any
 
-    tools {
-        nodejs "NodeJS_18"
+  tools {
+    nodejs "NodeJS_18"
+  }
+
+  parameters {
+    choice(name: 'BROWSER', choices: ['chrome', 'edge', 'electron'], description: 'Browser')
+    choice(name: 'HEADLESS', choices: ['true', 'false'], description: 'Headless or headed')
+    string(name: 'CYPRESS_ENV', defaultValue: '', description: 'Optional Cypress env')
+  }
+
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
     }
 
-    parameters {
-        choice(
-            name: 'BROWSER',
-            choices: ['chrome', 'edge', 'electron'],
-            description: 'Choose which browser Cypress will run on'
-        )
-
-        string(
-            name: 'SPEC',
-            defaultValue: '',
-            description: 'Optional: run specific spec(s). Example: cypress/e2e/todo.cy.js OR cypress/e2e/**/*.cy.js (leave empty to run all)'
-        )
-
-        choice(
-            name: 'HEADLESS',
-            choices: ['true', 'false'],
-            description: 'Run headless or not (Cypress run is headless by default)'
-        )
-
-        string(
-            name: 'CYPRESS_ENV',
-            defaultValue: '',
-            description: 'Optional: Cypress env variables. Example: baseUrl=https://qacart.com,token=123 (leave empty if not needed)'
-        )
+    stage('Install') {
+      steps { bat 'npm ci' }
     }
 
-    stages {
+    stage('Parallel Cypress Runs') {
+      parallel {
 
-        stage('Checkout') {
-            steps {
-                checkout scm
+        stage('Smoke') {
+          steps {
+            script {
+              def cmd = "npx cypress run --browser ${params.BROWSER} --spec \"cypress/e2e/smoke/**/*.cy.js\""
+              if (params.CYPRESS_ENV?.trim()) cmd += " --env \"${params.CYPRESS_ENV}\""
+              if (params.HEADLESS == 'false') cmd += " --headed"
+              // report folder unique
+              cmd += " --config reporterOptions.reportDir=cypress/reports/smoke"
+              bat cmd
             }
+          }
         }
 
-        stage('Install') {
-            steps {
-                bat 'npm ci'
+        stage('Regression') {
+          steps {
+            script {
+              def cmd = "npx cypress run --browser ${params.BROWSER} --spec \"cypress/e2e/regression/**/*.cy.js\""
+              if (params.CYPRESS_ENV?.trim()) cmd += " --env \"${params.CYPRESS_ENV}\""
+              if (params.HEADLESS == 'false') cmd += " --headed"
+              cmd += " --config reporterOptions.reportDir=cypress/reports/regression"
+              bat cmd
             }
+          }
         }
 
-        stage('Run Cypress & Generate Report') {
-            steps {
-                script {
-                    def cmd = "npm run test:report -- --browser ${params.BROWSER}"
-
-                    if (params.SPEC?.trim()) {
-                        cmd += " --spec \"${params.SPEC}\""
-                    }
-
-                    if (params.CYPRESS_ENV?.trim()) {
-                        cmd += " --env \"${params.CYPRESS_ENV}\""
-                    }
-
-                    // لو بدك non-headless لازم تستخدم --headed (بس بشرط الجهاز/agent يدعم UI)
-                    if (params.HEADLESS == 'false') {
-                        cmd += " --headed"
-                    }
-
-                    bat cmd
-                }
-            }
-        }
+      }
     }
 
-post {
+    stage('Merge Report (Optional)') {
+      steps {
+        // لو عندك mochawesome-merge + marge مثبتين بالـ package.json
+        // رح يدمج التقارير من كل الفولدرات
+        bat 'npm run merge:report'
+      }
+    }
+  }
+
+  post {
     always {
+      archiveArtifacts artifacts: 'cypress/reports/**', allowEmptyArchive: true
 
-        // 📄 Archive ONLY the main HTML report
-        archiveArtifacts artifacts: 'cypress/reports/index.html', allowEmptyArchive: true
-
-        // 📊 Publish ONLY index.html
-        script {
-            publishHTML(target: [
-                allowMissing: false,
-                alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'cypress/reports',
-                reportFiles: 'index.html',
-                reportName: 'Cypress Mochawesome Report'
-            ])
-        }
+      // اذا عندك report واحد نهائي بآخر مرحلة:
+      publishHTML(target: [
+        allowMissing: true,
+        alwaysLinkToLastBuild: true,
+        keepAll: true,
+        reportDir: 'cypress/reports',
+        reportFiles: 'index.html',
+        reportName: 'Cypress Mochawesome Report'
+      ])
     }
-}
+  }
 }
