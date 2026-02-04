@@ -9,7 +9,7 @@ reporterOptions: {
   overwrite: false,
   html: false,
   json: true,
-}
+},
 
   e2e: {
     env: {
